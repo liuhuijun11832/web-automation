@@ -139,13 +139,14 @@ class LoginTest(unittest.TestCase):
         jdbc = self.jdbc
         dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case1.username'),
                                      input.get('test.case1.pwd'))
-        logger.info(dialog_element is None)
-        self.assertIsNotNone(dialog_element, '登录失败:{}'.format(dialog_element.text))
+        dialog_msg = dialog_element.text if dialog_element is not None else ''
+        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         if title == config.get('success.title'):
             self.assertEqual(title, config.get('success.title'))
         dialog_element = phone_varify(jdbc, browers, config, element)
-        self.assertIsNotNone(dialog_element, '登录失败:{}'.format(dialog_element.text))
+        dialog_msg = dialog_element.text if dialog_element is not None else ''
+        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         self.assertEqual(title, config.get('success.title'))
 
@@ -159,12 +160,33 @@ class LoginTest(unittest.TestCase):
         jdbc = self.jdbc
         dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case2.username'),
                                      input.get('test.case2.pwd'))
-        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_element.text))
+        dialog_msg = dialog_element.text if dialog_element is not None else ''
+        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         if title == config.get('success.title'):
             self.assertEqual(title, config.get('success.title'))
         dialog_element = phone_varify(jdbc, browers, config, element)
-        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_element.text))
+        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
+        title = browers.title
+        self.assertEqual(title, config.get('success.title'))
+
+    """测试用例02-用户名+密码登录成功"""
+
+    def test_login_003(self):
+        browers = self.browers
+        config = self.config
+        input = self.input
+        element = self.element
+        jdbc = self.jdbc
+        dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case3.username'),
+                                     input.get('test.case3.pwd'))
+        dialog_msg = dialog_element.text if dialog_element is not None else ''
+        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
+        title = browers.title
+        if title == config.get('success.title'):
+            self.assertEqual(title, config.get('success.title'))
+        dialog_element = phone_varify(jdbc, browers, config, element)
+        self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         self.assertEqual(title, config.get('success.title'))
 
