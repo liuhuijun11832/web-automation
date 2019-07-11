@@ -34,58 +34,24 @@ def get_yun_sid(browers):
 cwd = path.dirname(__file__)
 
 
-# 输入用户名和密码
-def input_uname(redis, browers, config, element, username, password):
-    browers.get(config.get('login.url'))
-    sleep(1)
-    browers.find_element_by_xpath(element.get('login.page.prompt')).click()
-    browers.find_element_by_id(element.get('login.username.id')).send_keys(username)
-    browers.find_element_by_id(element.get('login.pwd.id')).send_keys(password)
+# 获取redis中验证码
+def get_redis_validcode(browers, redis, config):
     # 获取cookie中的sid，并获取redis中的图片验证码
     yunsid = get_yun_sid(browers)
     logger.info('获得yunsid:{}'.format(yunsid))
     valied_code = redis.hget((config.get('session.prefix') + yunsid), config.get('valid.code.key'))
-    logger.info('从redis中获取图片验证码为:{}'.format(valied_code))
-    browers.find_element_by_id(element.get('login.valid.id')).send_keys(str(valied_code))
-    browers.find_element_by_xpath(element.get('login.button')).click()
-    sleep(1)
-    return get_dialog(browers, element)
+    return valied_code
 
 
-# 输入税号和密码
-def input_nsrsbh(redis, browers, config, element, nsrsbh, password):
-    browers.get(config.get('login.url'))
-    browers.find_element_by_xpath(element.get('login.page.prompt')).click()
-    sleep(1)
-    browers.find_element_by_xpath(element.get('login.tax')).click()
-    browers.find_element_by_id(element.get('login.username.tax.id')).send_keys(nsrsbh)
-    browers.find_element_by_id(element.get('login.pwd.tax.id')).send_keys(password)
-    # 获取cookie中的sid，并获取redis中的图片验证码
-    yunsid = get_yun_sid(browers)
-    logger.info('获得yunsid:{}'.format(yunsid))
-    valied_code = redis.hget((config.get('session.prefix') + yunsid), config.get('valid.code.key'))
-    logger.info('从redis中获取图片验证码为:{}'.format(valied_code))
-    browers.find_element_by_id(element.get('login.valid.tax.id')).send_keys(str(valied_code))
-    browers.find_element_by_xpath(element.get('login.button.tax')).click()
-    sleep(1)
-    return get_dialog(browers, element)
-
-
-# 读取用户输入的手机号
-def phone_varify(jdbc, browers, config, element):
-    verify_phone = browers.find_element_by_id(element.get('verify.phone.id')).get_attribute('value')
-    logger.info('当前登录用户手机号码为：{}'.format(verify_phone))
-    # 发送验证码
-    browers.find_element_by_id(element.get('verify.phone.sender')).click()
-    logger.info('发送验证码中')
-    sleep(3)
+# 获取数据库中的手机验证码
+def get_phone_validcode(jdbc, phone, config):
     verify_phone_code = ''
     i = 1
     while i < 6 and verify_phone_code == '':
         sleep(2)
         logger.info('当前手机验证码为空，第{}次查询数据库……'.format(i))
         cursor = jdbc.cursor()
-        query_sql = str(config.get('jdbc.query')).replace('$equals$', '=').format(verify_phone)
+        query_sql = str(config.get('jdbc.query')).replace('$equals$', '=').format(phone)
         cursor.execute(query_sql)
         logger.info('查询数据库：{}'.format(query_sql))
         jdbc_result = cursor.fetchall()
@@ -97,6 +63,42 @@ def phone_varify(jdbc, browers, config, element):
                     break
         i += 1
     logger.info('短信验证码为:{}'.format(verify_phone_code))
+    return verify_phone_code
+
+
+# 输入用户名和密码
+def input_uname(browers, config, element, username, password, valied_code):
+    browers.get(config.get('login.url'))
+    sleep(1)
+    browers.find_element_by_xpath(element.get('login.page.prompt')).click()
+    browers.find_element_by_id(element.get('login.username.id')).send_keys(username)
+    browers.find_element_by_id(element.get('login.pwd.id')).send_keys(password)
+    logger.info('从redis中获取图片验证码为:{}'.format(valied_code))
+    browers.find_element_by_id(element.get('login.valid.id')).send_keys(str(valied_code))
+    browers.find_element_by_xpath(element.get('login.button')).click()
+    sleep(1)
+    return get_dialog(browers, element)
+
+
+# 输入税号和密码
+def input_nsrsbh(browers, config, element, nsrsbh, password, valied_code):
+    browers.get(config.get('login.url'))
+    browers.find_element_by_xpath(element.get('login.page.prompt')).click()
+    sleep(1)
+    browers.find_element_by_xpath(element.get('login.tax')).click()
+    browers.find_element_by_id(element.get('login.username.tax.id')).send_keys(nsrsbh)
+    browers.find_element_by_id(element.get('login.pwd.tax.id')).send_keys(password)
+    logger.info('从redis中获取图片验证码为:{}'.format(valied_code))
+    browers.find_element_by_id(element.get('login.valid.tax.id')).send_keys(str(valied_code))
+    browers.find_element_by_xpath(element.get('login.button.tax')).click()
+    sleep(1)
+    return get_dialog(browers, element)
+
+
+# 输入验证码
+def phone_varify(browers, element, verify_phone_code):
+    browers.find_element_by_id(element.get('verify.phone.sender')).click()
+    logger.info('发送验证码中')
     browers.find_element_by_id(element.get('yzm.input.id')).send_keys(verify_phone_code)
     browers.find_element_by_xpath(element.get('yzm.button')).click()
     sleep(1)
@@ -153,16 +155,19 @@ class LoginTest(unittest.TestCase):
         config = self.config
         input = self.input
         element = self.element
-        jdbc = self.jdbc
         browers.implicitly_wait(5)
-        dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case1.username'),
-                                     input.get('test.case1.pwd'))
+        valid_code = get_redis_validcode(browers, self.redis, config)
+        dialog_element = input_uname(browers, config, element, input.get('test.case1.username'),
+                                     input.get('test.case1.pwd'), valid_code)
         dialog_msg = dialog_element.text if dialog_element is not None else ''
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         if title == config.get('success.title'):
             self.assertEqual(title, config.get('success.title'))
-        dialog_element = phone_varify(jdbc, browers, config, element)
+        verify_phone = browers.find_element_by_id(element.get('verify.phone.id')).get_attribute('value')
+        logger.info('当前登录用户手机号码为：{}'.format(verify_phone))
+        verify_phone_code = get_phone_validcode(self.jdbc, verify_phone, config)
+        dialog_element = phone_varify(browers, element, verify_phone_code)
         dialog_msg = dialog_element.text if dialog_element is not None else ''
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
@@ -175,16 +180,19 @@ class LoginTest(unittest.TestCase):
         config = self.config
         input = self.input
         element = self.element
-        jdbc = self.jdbc
         browers.implicitly_wait(5)
-        dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case2.username'),
-                                     input.get('test.case2.pwd'))
+        valid_code = get_redis_validcode(browers, self.redis, config)
+        dialog_element = input_uname(browers, config, element, input.get('test.case2.username'),
+                                     input.get('test.case2.pwd'), valid_code)
         dialog_msg = dialog_element.text if dialog_element is not None else ''
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         if title == config.get('success.title'):
             self.assertEqual(title, config.get('success.title'))
-        dialog_element = phone_varify(jdbc, browers, config, element)
+        verify_phone = browers.find_element_by_id(element.get('verify.phone.id')).get_attribute('value')
+        logger.info('当前登录用户手机号码为：{}'.format(verify_phone))
+        verify_phone_code = get_phone_validcode(self.jdbc, verify_phone, config)
+        dialog_element = phone_varify(browers, element, verify_phone_code)
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         self.assertEqual(title, config.get('success.title'))
@@ -198,14 +206,18 @@ class LoginTest(unittest.TestCase):
         element = self.element
         jdbc = self.jdbc
         browers.implicitly_wait(5)
-        dialog_element = input_nsrsbh(self.redis, browers, config, element, input.get('test.case3.username'),
-                                      input.get('test.case3.pwd'))
+        valid_code = get_redis_validcode(browers, self.redis, config)
+        dialog_element = input_uname(browers, config, element, input.get('test.case1.username'),
+                                     input.get('test.case3.pwd'), valid_code)
         dialog_msg = dialog_element.text if dialog_element is not None else ''
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         if title == config.get('success.title'):
             self.assertEqual(title, config.get('success.title'))
-        dialog_element = phone_varify(jdbc, browers, config, element)
+        verify_phone = browers.find_element_by_id(element.get('verify.phone.id')).get_attribute('value')
+        logger.info('当前登录用户手机号码为：{}'.format(verify_phone))
+        verify_phone_code = get_phone_validcode(self.jdbc, verify_phone, config)
+        dialog_element = phone_varify(browers, element, verify_phone_code)
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         self.assertEqual(title, config.get('success.title'))
