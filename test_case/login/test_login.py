@@ -52,6 +52,25 @@ def input_uname(redis, browers, config, element, username, password):
     return get_dialog(browers, element)
 
 
+# 输入税号和密码
+def input_nsrsbh(redis, browers, config, element, nsrsbh, password):
+    browers.get(config.get('login.url'))
+    browers.find_element_by_xpath(element.get('login.page.prompt')).click()
+    sleep(1)
+    browers.find_element_by_xpath(element.get('login.tax')).click()
+    browers.find_element_by_id(element.get('login.username.tax.id')).send_keys(nsrsbh)
+    browers.find_element_by_id(element.get('login.pwd.tax.id')).send_keys(password)
+    # 获取cookie中的sid，并获取redis中的图片验证码
+    yunsid = get_yun_sid(browers)
+    logger.info('获得yunsid:{}'.format(yunsid))
+    valied_code = redis.hget((config.get('session.prefix') + yunsid), config.get('valid.code.key'))
+    logger.info('从redis中获取图片验证码为:{}'.format(valied_code))
+    browers.find_element_by_id(element.get('login.valid.tax.id')).send_keys(str(valied_code))
+    browers.find_element_by_xpath(element.get('login.button.tax')).click()
+    sleep(1)
+    return get_dialog(browers, element)
+
+
 # 读取用户输入的手机号
 def phone_varify(jdbc, browers, config, element):
     verify_phone = browers.find_element_by_id(element.get('verify.phone.id')).get_attribute('value')
@@ -122,12 +141,10 @@ class LoginTest(unittest.TestCase):
             chrome_driver_path = self.config.get('chrome.driver.path')
             logger.info('获取到chrome驱动路径为:{}'.format(chrome_driver_path))
             self.browers = webdriver.Chrome(chrome_driver_path)
-            self.browers.implicitly_wait(5)
         if ie_driver is True:
             ie_driver_path = self.config.get('ie.driver.path')
             logger.info('获取到IE驱动路径为:{}'.format(ie_driver_path))
             self.browers = webdriver.Ie(ie_driver_path)
-            self.browers.implicitly_wait(5)
 
     """测试用例01-手机号+密码登录成功"""
 
@@ -137,6 +154,7 @@ class LoginTest(unittest.TestCase):
         input = self.input
         element = self.element
         jdbc = self.jdbc
+        browers.implicitly_wait(5)
         dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case1.username'),
                                      input.get('test.case1.pwd'))
         dialog_msg = dialog_element.text if dialog_element is not None else ''
@@ -158,6 +176,7 @@ class LoginTest(unittest.TestCase):
         input = self.input
         element = self.element
         jdbc = self.jdbc
+        browers.implicitly_wait(5)
         dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case2.username'),
                                      input.get('test.case2.pwd'))
         dialog_msg = dialog_element.text if dialog_element is not None else ''
@@ -170,7 +189,7 @@ class LoginTest(unittest.TestCase):
         title = browers.title
         self.assertEqual(title, config.get('success.title'))
 
-    """测试用例02-用户名+密码登录成功"""
+    """测试用例03-税号+密码登录成功"""
 
     def test_login_003(self):
         browers = self.browers
@@ -178,8 +197,9 @@ class LoginTest(unittest.TestCase):
         input = self.input
         element = self.element
         jdbc = self.jdbc
-        dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case3.username'),
-                                     input.get('test.case3.pwd'))
+        browers.implicitly_wait(5)
+        dialog_element = input_nsrsbh(self.redis, browers, config, element, input.get('test.case3.username'),
+                                      input.get('test.case3.pwd'))
         dialog_msg = dialog_element.text if dialog_element is not None else ''
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
@@ -189,6 +209,18 @@ class LoginTest(unittest.TestCase):
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
         self.assertEqual(title, config.get('success.title'))
+
+    """测试用例004-手机号+错误密码登录失败"""
+
+    def test_login_004(self):
+        browers = self.browers
+        config = self.config
+        input = self.input
+        element = self.element
+        browers.implicitly_wait(5)
+        dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case4.username'),
+                                     input.get('test.case4.pwd'))
+        self.assertIsNotNone(dialog_element, '错误密码验证通过')
 
     def tearDown(self):
         self.browers.quit()
