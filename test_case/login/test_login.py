@@ -68,8 +68,6 @@ def get_phone_validcode(jdbc, phone, config):
 
 # 输入用户名和密码
 def input_uname(browers, config, element, username, password, valied_code):
-    browers.get(config.get('login.url'))
-    sleep(1)
     browers.find_element_by_xpath(element.get('login.page.prompt')).click()
     browers.find_element_by_id(element.get('login.username.id')).send_keys(username)
     browers.find_element_by_id(element.get('login.pwd.id')).send_keys(password)
@@ -156,6 +154,7 @@ class LoginTest(unittest.TestCase):
         input = self.input
         element = self.element
         browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
         valid_code = get_redis_validcode(browers, self.redis, config)
         dialog_element = input_uname(browers, config, element, input.get('test.case1.username'),
                                      input.get('test.case1.pwd'), valid_code)
@@ -181,6 +180,7 @@ class LoginTest(unittest.TestCase):
         input = self.input
         element = self.element
         browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
         valid_code = get_redis_validcode(browers, self.redis, config)
         dialog_element = input_uname(browers, config, element, input.get('test.case2.username'),
                                      input.get('test.case2.pwd'), valid_code)
@@ -204,11 +204,11 @@ class LoginTest(unittest.TestCase):
         config = self.config
         input = self.input
         element = self.element
-        jdbc = self.jdbc
         browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
         valid_code = get_redis_validcode(browers, self.redis, config)
-        dialog_element = input_uname(browers, config, element, input.get('test.case1.username'),
-                                     input.get('test.case3.pwd'), valid_code)
+        dialog_element = input_nsrsbh(browers, config, element, input.get('test.case1.username'),
+                                      input.get('test.case3.pwd'), valid_code)
         dialog_msg = dialog_element.text if dialog_element is not None else ''
         self.assertIsNone(dialog_element, '登录失败:{}'.format(dialog_msg))
         title = browers.title
@@ -230,9 +230,79 @@ class LoginTest(unittest.TestCase):
         input = self.input
         element = self.element
         browers.implicitly_wait(5)
-        dialog_element = input_uname(self.redis, browers, config, element, input.get('test.case4.username'),
-                                     input.get('test.case4.pwd'))
-        self.assertIsNotNone(dialog_element, '错误密码验证通过')
+        browers.get(config.get('login.url'))
+        valid_code = get_redis_validcode(browers, self.redis, config)
+        dialog_element = input_nsrsbh(browers, config, element, input.get('test.case4.username'),
+                                      input.get('test.case4.pwd'), valid_code)
+        self.assertIsNotNone(dialog_element, '错误密码不应该登录成功')
+
+    """测试用例005-用户名为中文，登录失败"""
+
+    def test_login_005(self):
+        browers = self.browers
+        config = self.config
+        input = self.input
+        element = self.element
+        browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
+        valid_code = get_redis_validcode(browers, self.redis, config)
+        dialog_element = input_nsrsbh(browers, config, element, input.get('test.case5.username'),
+                                      input.get('test.case5.pwd'), valid_code)
+        self.assertIsNotNone(dialog_element, '中文用户名不应该登录成功')
+
+    """测试用例006-密码为纯数字登录失败"""
+
+    def test_login_006(self):
+        browers = self.browers
+        config = self.config
+        input = self.input
+        element = self.element
+        browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
+        valid_code = get_redis_validcode(browers, self.redis, config)
+        dialog_element = input_nsrsbh(browers, config, element, input.get('test.case6.username'),
+                                      input.get('test.case6.pwd'), valid_code)
+        self.assertIsNotNone(dialog_element, '纯数字密码不应该登录成功')
+
+    """测试用例007-图形验证码为空登录失败"""
+
+    def test_login_007(self):
+        browers = self.browers
+        config = self.config
+        input = self.input
+        element = self.element
+        browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
+        dialog_element = input_nsrsbh(browers, config, element, input.get('test.case7.username'),
+                                      input.get('test.case7.pwd'), '')
+        self.assertIsNotNone(dialog_element, '验证码为空不应该登录成功')
+
+    """测试用例008-税号有特殊字符登录失败"""
+
+    def test_login_008(self):
+        browers = self.browers
+        config = self.config
+        input = self.input
+        element = self.element
+        browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
+        dialog_element = input_nsrsbh(browers, config, element, input.get('test.case8.username'),
+                                      input.get('test.case8.pwd'), '')
+        self.assertIsNotNone(dialog_element, '税号有特殊字符不应该登录成功')
+
+    """测试用例009-密码为空登录失败"""
+
+    def test_login_009(self):
+        browers = self.browers
+        config = self.config
+        input = self.input
+        element = self.element
+        browers.implicitly_wait(5)
+        browers.get(config.get('login.url'))
+        valid_code = get_redis_validcode(browers, self.redis, config)
+        dialog_element = input_nsrsbh(browers, config, element, input.get('test.case9.username'),
+                                      input.get('test.case9.pwd'), valid_code)
+        self.assertIsNotNone(dialog_element, '空密码不应该登录成功')
 
     def tearDown(self):
         self.browers.quit()
